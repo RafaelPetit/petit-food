@@ -1,0 +1,3 @@
+[submodule "petit-food-payments"]
+	path = petit-food-payments
+	url = git@github.com:RafaelPetit/petit-food-payments.git
