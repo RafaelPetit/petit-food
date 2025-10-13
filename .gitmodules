@@ -1,3 +1,6 @@
 [submodule "petit-food-payments"]
 	path = petit-food-payments
 	url = git@github.com:RafaelPetit/petit-food-payments.git
+[submodule "petit-food-server"]
+	path = petit-food-server
+	url = git@github.com:RafaelPetit/petit-food-server.git
