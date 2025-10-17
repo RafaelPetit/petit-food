@@ -10,3 +10,6 @@
 [submodule "petit-food-gateway"]
 	path = petit-food-gateway
 	url = git@github.com:RafaelPetit/petit-food-gateway.git
+[submodule "petit-food-infra"]
+	path = petit-food-infra
+	url = git@github.com:RafaelPetit/petit-food-infra.git
