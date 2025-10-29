@@ -19,6 +19,46 @@ services:
       timeout: 10s
       retries: 5
 
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    restart: always
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=201309
+      - POSTGRES_DB=postgres
+    networks:
+      - petit-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: ./petit-food-server
+      dockerfile: Dockerfile
+    container_name: server
+    restart: always
+    ports:
+      - "8081:8081"
+    networks:
+      - petit-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
   gateway:
     build:
       context: ./petit-food-gateway
@@ -26,14 +66,17 @@ services:
     container_name: gateway
     restart: always
     ports:
-      - "8080:8080"
+      - "8082:8082"
     depends_on:
+      server:
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
     networks:
       - petit-network
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://server:8081/eureka
       - SPRING_RABBITMQ_HOST=rabbitmq
       - SPRING_RABBITMQ_PORT=5672
       - SPRING_RABBITMQ_USERNAME=guest
@@ -45,19 +88,25 @@ services:
       dockerfile: Dockerfile
     container_name: payments
     restart: always
-    ports:
-      - "8081:8080"
     depends_on:
+      server:
+        condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
     networks:
       - petit-network
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://server:8081/eureka
       - SPRING_RABBITMQ_HOST=rabbitmq
       - SPRING_RABBITMQ_PORT=5672
       - SPRING_RABBITMQ_USERNAME=guest
       - SPRING_RABBITMQ_PASSWORD=guest
+      - JDBC_DATABASE_URL=jdbc:postgresql://postgres:5432/payments
+      - JDBC_DATABASE_USERNAME=postgres
+      - JDBC_DATABASE_PASSWORD=201309
 
   orders:
     build:
@@ -65,39 +114,25 @@ services:
       dockerfile: Dockerfile
     container_name: orders
     restart: always
-    ports:
-      - "8082:8080"
     depends_on:
+      server:
+        condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
     networks:
       - petit-network
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://server:8081/eureka
       - SPRING_RABBITMQ_HOST=rabbitmq
       - SPRING_RABBITMQ_PORT=5672
       - SPRING_RABBITMQ_USERNAME=guest
       - SPRING_RABBITMQ_PASSWORD=guest
-
-  server:
-    build:
-      context: ./petit-food-server
-      dockerfile: Dockerfile
-    container_name: server
-    restart: always
-    ports:
-      - "8083:8080"
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - petit-network
-    environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - SPRING_RABBITMQ_HOST=rabbitmq
-      - SPRING_RABBITMQ_PORT=5672
-      - SPRING_RABBITMQ_USERNAME=guest
-      - SPRING_RABBITMQ_PASSWORD=guest
+      - JDBC_DATABASE_URL=jdbc:postgresql://postgres:5432/orders
+      - JDBC_DATABASE_USERNAME=postgres
+      - JDBC_DATABASE_PASSWORD=201309
 
 networks:
   petit-network:
@@ -105,3 +140,4 @@ networks:
 
 volumes:
   rabbitmq-data:
+  postgres-data:
